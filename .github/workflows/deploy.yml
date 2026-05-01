@@ -16,8 +16,8 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 5m
         script: |
-          # 1. Enter the Alumni module folder
-          # Ensure this path matches your VPS setup (usually /root/gibbon-erp/...)
+          set -e
+          # 1. Enter the Alumni module folder on the VPS
           cd /root/gibbon-erp/gibbon/modules/Alumni
           
           # 2. Fix Git ownership and Repair Refs
@@ -28,24 +28,31 @@ jobs:
           git fetch origin main
           git reset --hard FETCH_HEAD
           
-          # 4. Clean up non-Gibbon files (Removing development clutter)
+          # 4. AUTO-FIX: Move files out of the subfolder if nesting is detected
+          # This keeps your Repo structure the same but makes Gibbon happy on the server
+          if [ -d "Alumni" ]; then
+            echo "Nesting detected. Moving files up to module root..."
+            mv Alumni/{.,}* . 2>/dev/null || true
+            rmdir Alumni || echo "Subfolder already cleared."
+          fi
+          
+          # 5. Clean up non-Gibbon files (Removing development clutter)
           rm -rf package.json package-lock.json tsconfig.json vite.config.ts server.ts components index.html.bak version.php components.json .env.example .gitignore AGENTS.md README.md 
           mkdir -p src css img js
           
-          # 5. Set correct ownership and permissions inside the Docker container
+          # 6. Set correct ownership and permissions inside the Docker container
           docker exec -u root gibbon-web chown -R www-data:www-data /var/www/html/modules/Alumni
           docker exec -u root gibbon-web find /var/www/html/modules/Alumni -type d -exec chmod 755 {} +
           docker exec -u root gibbon-web find /var/www/html/modules/Alumni -type f -name "*.php" -exec chmod 755 {} +
           docker exec -u root gibbon-web chmod 644 /var/www/html/modules/Alumni/manifest.php
           
-          # 6. Flush the Gibbon application cache
+          # 7. Flush the Gibbon application cache
           docker exec gibbon-web rm -rf /var/www/html/cache/*
           
-          # 7. Clean up Alumni module entry from DB to allow a fresh install
-          # Note: We use the specific container name you provided
+          # 8. Clean up Alumni module entry from DB to allow a fresh install
           docker exec 904d1323b84d_gibbon-mysql mysql -u root -e "DELETE FROM gibbondb.gibbonModule WHERE name = 'Alumni';" || echo "Database cleanup skipped or failed."
           
-          # 8. Nuclear Drop of old tables to prevent installation conflicts
+          # 9. Nuclear Drop of old tables to prevent installation conflicts
           docker exec 904d1323b84d_gibbon-mysql mysql -u root -e "DROP TABLE IF EXISTS gibbondb.gibbonAlumni; DROP TABLE IF EXISTS gibbondb.alumniAlumnus;"
           
           echo "Alumni Deployment Successful. Ready for fresh install in Gibbon UI."
