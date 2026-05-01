@@ -28,93 +28,52 @@ use Gibbon\Domain\QueryableGateway;
 /**
  * Alumni Gateway
  *
- * @version 1.0.01
+ * @version 1.0.00
  * @since   1.0.00
  */
 class AlumniGateway extends QueryableGateway
 {
     use TableAware;
 
-    // Updated to match the standardized table structure
-    private static $tableName = 'gibbonAlumni';
-    private static $primaryKey = 'gibbonAlumniID';
+    private static $tableName = 'alumniAlumnus';
+    private static $primaryKey = 'alumniAlumnusID';
 
-    private static $searchableColumns = ['preferredName', 'surname', 'username', 'email'];
-
-    /**
-     * @param int $gibbonAlumniID
-     * @return array|false
-     */
-    public function getByID($gibbonAlumniID)
-    {
-        return $this->db()->select($this->getTableName(), [$this->getPrimaryKey() => $gibbonAlumniID])->fetch();
-    }
-
-    /**
-     * @param array $data
-     * @return string|false
-     */
-    public function add(array $data)
-    {
-        return $this->db()->insert($this->getTableName(), $data);
-    }
-
-    /**
-     * @param int $gibbonAlumniID
-     * @param array $data
-     * @return int|false
-     */
-    public function update($gibbonAlumniID, array $data)
-    {
-        return $this->db()->update($this->getTableName(), $data, [$this->getPrimaryKey() => $gibbonAlumniID]);
-    }
-
-    /**
-     * @param array $criteria
-     * @return \PDOStatement
-     */
-    public function selectBy(array $criteria)
-    {
-        return $this->db()->select($this->getTableName(), $criteria);
-    }
-
+    private static $searchableColumns = ['preferredName', 'surname', 'username', 'email' ];
+    
     /**
      * @param QueryCriteria $criteria
-     * @param string $graduatingYear
-     * @return \Gibbon\DataSet
+     * @return DataSet
      */
-    public function queryAlumniAlumnusByGraduationYear(QueryCriteria $criteria, $graduatingYear = '')
+    public function queryAlumniAlumnusByGraduationYear(QueryCriteria $criteria, $graduatinYear = '')
     {
         $query = $this
             ->newQuery()
             ->from($this->getTableName())
             ->cols([
-                'gibbonAlumniID',
+                'alumniAlumnusID',
                 'title',
                 'surname',
                 'firstName',
-                'preferredName', // Synced with the new database column
+                'officialName',
                 'maidenName',
                 'gender',
                 'username',
                 'dob',
                 'email',
-                'phone1',        // Added for WhatsApp Bridge integration
                 'address1Country',
                 'profession',
                 'employer',
                 'jobTitle',
                 'graduatingYear',
                 'formerRole',
-                'status',
                 'gibbonPersonID',
                 'timestamp'
             ]);
 
-        if (!empty($graduatingYear)) {
+        if (!empty($graduatinYear)) {
             $query->where('graduatingYear = :graduatingYear')
-                ->bindValue('graduatingYear', $graduatingYear);
-        }        
+                ->bindValue('graduatingYear', $graduatinYear);
+        }       
 
         return $this->runQuery($query, $criteria);
     }
