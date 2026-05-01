@@ -27,7 +27,7 @@ use Gibbon\Forms\CustomFieldHandler;
 include './modules/'.$session->get('module').'/moduleFunctions.php';
 
 if (isActionAccessible($guid, $connection2, '/modules/Alumni/alumni_manage_add.php') == false) {
-    //Acess denied
+    //Access denied
     $page->addError(__m('You do not have access to this action.'));
 } else {
     $page->breadcrumbs
@@ -35,11 +35,10 @@ if (isActionAccessible($guid, $connection2, '/modules/Alumni/alumni_manage_add.p
       ->add(__m('Add'));
 
     $graduatingYear = $_GET['graduatingYear'] ?? '';
-    $alumniAlumnusID = $_GET['alumniAlumnusID'] ?? '';
 
     $editLink = '';
     if (isset($_GET['editID'])) {
-        $editLink = $session->get('absoluteURL').'/index.php?q=/modules/Alumni/alumni_manage_edit.php&alumniAlumnusID='.$_GET['editID'].'&graduatingYear='.$graduatingYear;
+        $editLink = $session->get('absoluteURL').'/index.php?q=/modules/Alumni/alumni_manage_edit.php&gibbonAlumniID='.$_GET['editID'].'&graduatingYear='.$graduatingYear;
     }
     $page->return->setEditLink($editLink);
 
@@ -63,19 +62,24 @@ if (isActionAccessible($guid, $connection2, '/modules/Alumni/alumni_manage_add.p
 
     $row = $form->addRow();
         $row->addLabel('firstName', __m('First Name'));
-        $row->addTextField('firstName')->isRequired()->maxLength(30);
+        $row->addTextField('firstName')->isRequired()->maxLength(50);
 
     $row = $form->addRow();
         $row->addLabel('surname', __m('Surname'));
-        $row->addTextField('surname')->isRequired()->maxLength(30);
+        $row->addTextField('surname')->isRequired()->maxLength(50);
 
     $row = $form->addRow();
-        $row->addLabel('officialName', __m('Official Name'))->description(__m('Full name as shown in ID documents.'));
-        $row->addTextField('officialName')->maxLength(150);
+        $row->addLabel('preferredName', __m('Preferred Name'))->description(__m('Full name as you wish it to appear in school records.'));
+        $row->addTextField('preferredName')->maxLength(150);
 
     $row = $form->addRow();
-        $row->addLabel('email', __m('Email'))->description(__m('Your current non-school email.'));
-        $email = $row->addEmail('email')->isRequired()->maxLength(50);
+        $row->addLabel('email', __m('Email'))->description(__m('Current non-school email address.'));
+        $row->addEmail('email')->isRequired()->maxLength(50);
+
+    // WhatsApp Integration Field
+    $row = $form->addRow();
+        $row->addLabel('phone1', __m('Phone Number'))->description(__m('International format (e.g. 919876543210) without + or 00.'));
+        $row->addTextField('phone1')->setPlaceholder('91...')->isRequired()->maxLength(20);
 
     $row = $form->addRow();
         $row->addLabel('gender', __m('Gender'));
@@ -99,11 +103,11 @@ if (isActionAccessible($guid, $connection2, '/modules/Alumni/alumni_manage_add.p
 
     $row = $form->addRow();
         $row->addLabel('maidenName', __m('Maiden Name'))->description(__m('Your surname prior to marriage.'));
-        $row->addTextField('maidenName')->maxLength(30);
+        $row->addTextField('maidenName')->maxLength(50);
 
     $row = $form->addRow();
-        $row->addLabel('username2', __m('Username'))->description(__m('If you are young enough, this is how you logged into computers.'));
-        $row->addTextField('username2')->maxLength(20);
+        $row->addLabel('username', __m('Username'))->description(__m('Previous school login or social media handle.'));
+        $row->addTextField('username')->maxLength(50);
 
     $row = $form->addRow();
         $row->addLabel('graduatingYear', __m('Graduating Year'));
@@ -113,17 +117,18 @@ if (isActionAccessible($guid, $connection2, '/modules/Alumni/alumni_manage_add.p
         $row->addLabel('address1Country', __m('Current Country of Residence'));
         $row->addSelectCountry('address1Country')->placeholder('');
 
+    // Updated Required Fields
     $row = $form->addRow();
         $row->addLabel('profession', __m('Profession'));
-        $row->addTextField('profession')->maxLength(30);
+        $row->addTextField('profession')->isRequired()->maxLength(100);
 
     $row = $form->addRow();
         $row->addLabel('employer', __m('Employer'));
-        $row->addTextField('employer')->maxLength(30);
+        $row->addTextField('employer')->isRequired()->maxLength(100);
 
     $row = $form->addRow();
         $row->addLabel('jobTitle', __m('Job Title'));
-        $row->addTextField('jobTitle')->maxLength(30);
+        $row->addTextField('jobTitle')->isRequired()->maxLength(100);
 
     $form->addRow()->addHeading(__m('Link To Gibbon User'));
 
