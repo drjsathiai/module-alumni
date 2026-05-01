@@ -1,0 +1,37 @@
+name: Deploy Alumni Module
+
+on:
+  push:
+    branches:
+      - main  # Change this if your default branch is 'main, master'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script: |
+            # 1. Navigate to the module directory on the host
+            # Replace /path/to/your/gibbon with the actual path on your VPS
+            cd /var/www/html/modules/Alumni || exit
+            
+            # 2. Pull the latest changes
+            git pull origin main
+            
+            # 3. Fix permissions (optional but recommended)
+            chown -R www-data:www-data .
+            
+            # 4. Force Gibbon to recognize the new code/manifest
+            docker exec gibbon-web rm -rf /var/www/html/cache/*
+            
+            echo "Deployment successful and cache cleared!"
