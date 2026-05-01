@@ -36,56 +36,57 @@ if ($enablePublicRegistration != "Y" || ($enablePublicRegistration && !empty($lo
     $URL .= '&return=error0';
     header("Location: {$URL}");
 } else {
-    //Proceed!
-    $title = $_POST['title'] ?? '';
-    $surname = $_POST['surname'] ?? '';
-    $firstName = $_POST['firstName'] ?? '';
-    $officialName = $_POST['officialName'] ?? '';
-    $maidenName = $_POST['maidenName'] ?? '';
-    $gender = $_POST['gender'] ?? '';
-    $username = $_POST['username2'] ?? '';
-    $dob = $_POST['dob'] ? Format::dateConvert($_POST['dob']) : '';
-    $email = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+    // Collect Public Data
+    $title           = $_POST['title'] ?? '';
+    $surname         = $_POST['surname'] ?? '';
+    $firstName       = $_POST['firstName'] ?? '';
+    $preferredName   = $_POST['preferredName'] ?? $_POST['officialName'] ?? ''; // Sync with verified schema
+    $maidenName      = $_POST['maidenName'] ?? '';
+    $gender          = $_POST['gender'] ?? '';
+    $username        = $_POST['username'] ?? $_POST['username2'] ?? '';
+    $dob             = !empty($_POST['dob']) ? Format::dateConvert($_POST['dob']) : '';
+    $email           = filter_var(trim($_POST['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+    $phone1          = trim($_POST['phone1'] ?? ''); // Bridge Key
     $address1Country = $_POST['address1Country'] ?? '';
-    $profession = $_POST['profession'] ?? '';
-    $employer = $_POST['employer'] ?? '';
-    $jobTitle = $_POST['jobTitle'];
-    $graduatingYear = $_POST['graduatingYear'] ?? '';
-    $formerRole = $_POST['formerRole'];
+    $profession      = $_POST['profession'] ?? '';
+    $employer        = $_POST['employer'] ?? '';
+    $jobTitle        = $_POST['jobTitle'] ?? '';
+    $graduatingYear  = $_POST['graduatingYear'] ?? null;
+    $formerRole      = $_POST['formerRole'] ?? null;
 
-    if (empty($surname) or empty($firstName) or empty($officialName) or empty($gender) or empty($dob) or empty($email) or empty($formerRole)) {
-        //Fail 3
+    // Strict Validation: Including Phone and Professional Details
+    if (empty($surname) || empty($firstName) || empty($email) || empty($phone1) || 
+        empty($gender) || empty($dob) || empty($formerRole) || 
+        empty($profession) || empty($employer) || empty($jobTitle)) {
+        
         $URL .= '&return=error3';
         header("Location: {$URL}");
     } else {
-        //Check publicRegistrationMinimumAge
+        // Check publicRegistrationMinimumAge
         $publicRegistrationMinimumAge = $settingGateway->getSettingByScope('User Admin', 'publicRegistrationMinimumAge');
+        $ageFail = false;
 
-        if (empty($publicRegistrationMinimumAge)) {
-            $ageFail = true;
-        } elseif ($publicRegistrationMinimumAge > 0 and $publicRegistrationMinimumAge > (new DateTime('@'.Format::timestamp($dob)))->diff(new DateTime())->y) {
-            $ageFail = true;
-        } else {
-            $ageFail = false;
+        if (!empty($publicRegistrationMinimumAge) && $publicRegistrationMinimumAge > 0) {
+            $birthDate = new DateTime('@'.Format::timestamp($dob));
+            $today = new DateTime();
+            if ($birthDate->diff($today)->y < $publicRegistrationMinimumAge) {
+                $ageFail = true;
+            }
         }
 
-        if ($ageFail == true) {
-            //Fail 5
+        if ($ageFail) {
             $URL .= '&return=error5';
             header("Location: {$URL}");
         } else {
             $alumniGateway = $container->get(AlumniGateway::class);
-            //Check for uniqueness of username
+            
+            // Ensure Email Uniqueness
             $existEmail = $alumniGateway->selectBy(['email' => $email])->fetch();
-
             if (!empty($existEmail)) {
-                //Fail 7
                 $URL .= '&return=error7';
                 header("Location: {$URL}");
                 exit();
-            }
-            else {
-
+            } else {
                 $customRequireFail = false;
                 $fields = $container->get(CustomFieldHandler::class)->getFieldDataFromPOST('Alumni', [], $customRequireFail);
 
@@ -95,14 +96,47 @@ if ($enablePublicRegistration != "Y" || ($enablePublicRegistration && !empty($lo
                     exit;
                 }
 
-                //Write to database
-                $data = ['title' => $title, 'surname' => $surname, 'firstName' => $firstName, 'officialName' => $officialName, 'maidenName' => $maidenName, 'gender' => $gender, 'username' => $username, 'dob' => $dob, 'email' => $email, 'address1Country' => $address1Country, 'profession' => $profession, 'employer' => $employer, 'jobTitle' => $jobTitle, 'graduatingYear' => $graduatingYear, 'formerRole' => $formerRole, 'fields' => $fields];
-                $dataAlumni = array_filter($data, function($field) { return !empty($field[0]); });
-                
-                $alumniGateway->insert($dataAlumni);
+                // Prepare Data for Database
+                $data = [
+                    'title'           => $title, 
+                    'surname'         => $surname, 
+                    'firstName'       => $firstName, 
+                    'preferredName'   => $preferredName, 
+                    'maidenName'      => $maidenName, 
+                    'gender'          => $gender, 
+                    'username'        => $username, 
+                    'dob'             => $dob, 
+                    'email'           => $email, 
+                    'phone1'          => $phone1, 
+                    'address1Country' => $address1Country, 
+                    'profession'      => $profession, 
+                    'employer'        => $employer, 
+                    'jobTitle'        => $jobTitle, 
+                    'graduatingYear'  => $graduatingYear, 
+                    'formerRole'      => $formerRole, 
+                    'fields'          => $fields,
+                    'status'          => 'Pending' // New public signups are set to Pending for review
+                ];
 
-                //Success 0
-                $URL .= '&return=success0';
+                // Write to database
+                $insertID = $alumniGateway->add($data);
+
+                if ($insertID) {
+                    // --- WHATSAPP BRIDGE HANDSHAKE ---
+                    $whatsappFunctions = '../../modules/WhatsApp/functions.php';
+                    if (file_exists($whatsappFunctions)) {
+                        include_once $whatsappFunctions;
+                        if (function_exists('whatsAppSendRegSuccess')) {
+                            whatsAppSendRegSuccess($container, $phone1);
+                        }
+                    }
+                    // ----------------------------------
+
+                    $URL .= '&return=success0';
+                } else {
+                    $URL .= '&return=error2';
+                }
+
                 header("Location: {$URL}");
             }
         }
